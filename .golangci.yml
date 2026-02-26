@@ -1,0 +1,58 @@
+run:
+  timeout: 5m
+  go: "1.21"
+
+linters:
+  enable:
+    - govet          # go vet checks
+    - errcheck       # unchecked errors
+    - staticcheck    # staticcheck suite
+    - gosimple       # simplification suggestions
+    - ineffassign    # unused assignments
+    - unused         # unused code
+    - gosec          # security issues
+    - gocritic       # style / performance hints
+    - gofmt          # formatting
+    - goimports      # import ordering
+    - misspell       # spelling in comments/strings
+    - unconvert      # unnecessary type conversions
+    - prealloc       # slice preallocation hints
+    - nilerr         # nil error returns
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment   # not worth the readability cost
+
+  gosec:
+    excludes:
+      - G204   # subprocess with variable — intentional (exec target binary)
+      - G304   # file path from variable — intentional (/proc/<pid>/maps)
+      - G306   # file permissions — intentional (0755 binaries)
+
+  gocritic:
+    disabled-checks:
+      - commentedOutCode
+      - hugeParam         # BPF event structs are necessarily large
+
+  misspell:
+    locale: US
+
+issues:
+  exclude-rules:
+    # Test files: relax some checks
+    - path: "_test\\.go$"
+      linters: [gosec, errcheck]
+
+    # Generated BPF bindings: skip entirely
+    - path: "internal/bpf/.*_bpfel\\.go$"
+      linters: [all]
+
+    # CGO / eBPF glue: unsafe pointer arithmetic is expected
+    - path: "internal/agent/gobpf/"
+      linters: [gosec]
+      text: "unsafe"
+
+  max-issues-per-linter: 0
+  max-same-issues: 0

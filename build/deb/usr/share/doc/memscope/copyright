@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: memscope
+Source: https://github.com/mbergo/memscope
+
+Files: *
+Copyright: 2026 mbergo
+License: GPL-2.0+

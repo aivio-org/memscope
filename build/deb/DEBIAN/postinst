@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+if command -v setcap >/dev/null 2>&1; then
+  setcap cap_bpf,cap_perfmon,cap_sys_ptrace+eip /usr/bin/memscope
+fi

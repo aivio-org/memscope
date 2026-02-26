@@ -1,0 +1,14 @@
+Package: memscope
+Version: 0.2.0
+Architecture: amd64
+Maintainer: mbergo <mbergo@users.noreply.github.com>
+Depends: libc6
+Recommends: linux-headers-generic
+Section: utils
+Priority: optional
+Description: Real-time eBPF memory profiler for Go and Rust processes
+ MemScope attaches to live processes via eBPF uprobes and visualizes
+ heap allocations, goroutine activity, and syscalls in a terminal UI.
+ No code changes to the target are required.
+ .
+ Requires Linux >= 5.8 and CAP_BPF, CAP_PERFMON, CAP_SYS_PTRACE.

@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+if command -v setcap >/dev/null 2>&1; then
+  setcap -r /usr/bin/memscope 2>/dev/null || true
+fi

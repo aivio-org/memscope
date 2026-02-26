@@ -1,0 +1,12 @@
+[Unit]
+Description=MemScope profiler for PID %i
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/memscope attach --pid %i
+Restart=no
+AmbientCapabilities=CAP_BPF CAP_PERFMON CAP_SYS_PTRACE
+
+[Install]
+WantedBy=multi-user.target

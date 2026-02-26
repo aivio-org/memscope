@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Job 1: Build + unit tests (runs on every PR commit)
+  # ──────────────────────────────────────────────────────────────────────────
+  test:
+    name: Build & Test (Go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.21", "1.22", "1.23"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go ${{ matrix.go }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      # cilium/ebpf requires libelf at CGO link time; clang/llvm included so
+      # the BPF objects can be re-verified if needed.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            clang llvm libelf-dev libbpf-dev linux-headers-generic
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o memscope ./cmd/memscope
+
+      - name: Binary size
+        run: du -sh memscope
+
+      - name: Unit tests
+        run: go test -count=1 ./...
+
+      - name: Unit tests (race detector)
+        run: go test -race -count=1 ./...
+
+      - name: Test coverage
+        run: |
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out | tail -1
+
+      - name: Upload binary artifact
+        if: matrix.go == '1.21'
+        uses: actions/upload-artifact@v4
+        with:
+          name: memscope-linux-amd64
+          path: memscope
+          retention-days: 7
+
+      - name: Upload coverage artifact
+        if: matrix.go == '1.21'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Job 2: Static analysis / linting
+  # ──────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libelf-dev libbpf-dev
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Job 3: Build the .deb package (depends on test passing)
+  # ──────────────────────────────────────────────────────────────────────────
+  deb:
+    name: Package (.deb)
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache: true
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libelf-dev libbpf-dev fakeroot dpkg-dev
+
+      - name: Build .deb
+        run: make deb
+
+      - name: Inspect package metadata
+        run: dpkg-deb -I build/*.deb
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: memscope-deb
+          path: build/*.deb
+          retention-days: 30
